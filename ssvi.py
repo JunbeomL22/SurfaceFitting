@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 import constant
 
 class FittingFunction:
@@ -24,14 +24,12 @@ class Ssvi(FittingFunction):
         ret = 1.0 + r*p(j)*k + np.sqrt( (p(j)*k + r)**2.0 + (1.0 - r**2.0)  )
         ret *= j/2.0
         return ret
-        def reset(x):
-        pass
     
-    def reset(x):
+    def reset(self, x):
+        #import pdb;pdb.set_trace()
         self.rho = x[0]
         self.theta = x[1]
         self.phi = type(self.phi)(x[2:])
-
 
     
 eps = constant.bumpBuffer
