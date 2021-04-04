@@ -116,8 +116,8 @@ class SurfaceFit:
         diff = np.array(dates) - calc_date
         self.times = np.array([x.days/365.0 for x in diff])
         self.slice_num = length(self.times)
-        self.volData = np.matrix(volData) * 0.01
-        self.totalVar = self.volData**2.0 * times
+        self.volData = np.array(volData) * 0.01
+        self.totalVar = np.power(self.volData, 2.0) * self.times.reshape(-1, 1)
         self.logStrikes = np.log(strikes)
         self.fitter = [ssvi.Ssvi([-0.3, 0.01], phi.QuotientPhi([0.4, 0.4])) for i in range(self.slice_num)]
         self.vectorized_fitter = [np.vectorize(fitter[i]) for i in i in range(self.slice_num)]
