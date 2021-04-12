@@ -8,5 +8,5 @@ class QuotientPhi(SsviPhi):
         self.gamma= x[1]
 
     def __call__(self, theta):
-        ret = self.eta /( theta**self.gamma * (1.0+theta)**(1.0-self.gamma) )
+        ret = self.eta /( (theta**self.gamma) * ((1.0+theta)**(1.0-self.gamma)) )
         return ret

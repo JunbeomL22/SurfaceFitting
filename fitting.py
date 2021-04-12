@@ -6,6 +6,8 @@ import phi
 from functools import partial
 import copy
 from datetime import date
+import constant
+from mpl_toolkits import mplot3d
 
 class SliceFit:
     """
@@ -113,7 +115,8 @@ class SurfaceFit:
                  strikes, volData,
                  fitter,
                  weight = True,
-                 weight_cut = 0.6):
+                 weight_cut = 0.6,
+                 calendar_buffer=0.001):
         diff = np.array(dates) - calc_date
         self.times = np.array([x.days/365.0 for x in diff])
         self.slice_num = len(self.times)
@@ -122,13 +125,18 @@ class SurfaceFit:
         self.logStrikes = np.log(strikes)
         self.fitter = fitter
         self.vectorized_fitter = [np.vectorize(fitter[i]) for i in range(self.slice_num)]
+        self.vectorized_g = [np.vectorize(fitter[i]) for i in range(self.slice_num)]
         self.butterfly = ssvi.ssviQuotientConstraints
+        self.calendar_buffer = calendar_buffer
         if weight:
             self.weight = 5.0 * np.maximum(0.0, np.abs(np.log(weight_cut)) - np.abs(self.logStrikes))
         else:
             self.weight = np.repeat(1.0, len(self.logStrikes))
         self.params = [None for i in range(self.slice_num)]
-        self.calendar_checker = np.linspace(-1.0, 1.0, 41)
+        self.calendar_checker = np.linspace(-1.5, 1.5, 15)
+        self.calendar_ox =  ['O' for i in range(self.slice_num)]
+        self.calendar_ox[-1] = 'Nil'
+        self.butterfly_ox = ['O' for i in range(self.slice_num)]
         
     def cost_function(self, i, x):
         """
@@ -157,21 +165,16 @@ class SurfaceFit:
             )
         else:
             _cost_function = partial(self.cost_function, i)
-            def calendar(x):
-                # rho, theta, eta, gamma
-                x[0] -= constant.eps
-                x[1] += constant.eps
-                x[2] += constant.eps
-                x[3] += constant.eps
-                _fitter = copy.deepcopy(self.fitter[i])
-                _fitter.reset(x)
-                vf = np.vectorize(_fitter)
-                ret = self.vectorized_fitter[i+1](self.calendar_checker) - constant.eps -vf(self.calendar_checker)
-            cons = ({'type': 'ineq',
-                     'fun': calendar}
-                    ) # calendar
-            for c in self.butterfly:
-                cons.update(c)
+            cons = copy.deepcopy(self.butterfly)
+            for z in self.calendar_checker:
+                def calendar(k, x):
+                    _fitter = copy.deepcopy(self.fitter[i])
+                    _fitter.reset(x)
+                    ret = self.fitter[i+1](k) - self.calendar_buffer - _fitter(k)
+                    return ret
+                
+                cons.append({'type': 'ineq', 'fun': partial(calendar, z)})
+            
             res = minimize(
                 _cost_function, _init,
                 constraints = cons,
@@ -183,6 +186,7 @@ class SurfaceFit:
         self.fitter[i].reset(res.x)
         self.params[i] = res.x
         self.vectorized_fitter[i] = np.vectorize(self.fitter[i])
+        self.vectorized_g[i] = np.vectorize(partial(self.g, i))
         
     def calibrate(self, init = np.array([-0.3, 0.01, 0.4, 0.4]),
                   method='SLSQP', maxiter = 10000, tol = 1.0e-16,
@@ -191,6 +195,9 @@ class SurfaceFit:
         for i in range(self.slice_num-1, -1, -1):
             self.calibrate_slice(i, init, method, maxiter, tol, verbose)
 
+        self.check_butterfly()
+        self.check_calendar()
+        
     def fitted_vol(self, i, k):
         """
         fitted_vol(self, k)
@@ -205,29 +212,110 @@ class SurfaceFit:
         volatility point at k
         Note: k is log strike
         """
-        import pdb;pdb.set_trace()
         return np.sqrt( self.vectorized_fitter[i](self.logStrikes) / self.times[i] )
+    
+    def g(self, i, k):
+        """
+        density(self, i, k):
+        density of i-th slice
+        """
+        w = self.fitter[i]
+        wk = w(k)
+        eps = 1.0e-4
+        w_first = ( w(k+eps) - w(k-eps) ) / (2.0*eps)
+        w_second= ( w(k+eps) + w(k-eps) - 2.0*w(k) ) / (eps**2.0)
+        g = (1.0 - k*w_first /(2.0*wk))**2.0 - 0.25*w_first**2.0*(1.0/wk + 0.25) + 0.25*w_second
+        return g
 
     def visualize(self):
         st = np.exp(self.logStrikes)
         lst = self.logStrikes
-        ax_size = int(self.slice_num/2.0)+1
-        fig, axs = plt.subplots(ax_size, 2)
-        count = 0
-        if ax_size == 1:
-            axs[0, 0].plot(st, self.fitted_slice(count), 'r--')
-            axs[0, 0].plot(st, self.volData[count], 'b^')
-            axs[0, 0].set_title("T ="+"{:10.2f}".format(self.times[count]))
-        else:
-            for i in range(ax_size):
-                axs[i, 0].plot(st, self.fitted_slice(count), 'r--')
-                axs[i, 0].plot(st, self.volData[count], 'b^')
-                axs[i, 0].set_title("T ="+"{:10.2f}".format(self.times[count]))
-                count += 1
-                axs[i, 1].plot(st, self.fitted_slice(count), 'r--')
-                axs[i, 1].plot(st, self.volData[count], 'b^')
-                axs[i, 1].set_title("T ="+"{:10.2f}".format(self.times[count]))
-                count +=1
-            
-        plt.legend()
-        plt.show()   
+        testing = [-1.0 + 0.01*i for i in range(201)]
+        ax_size = max(int(np.floor( max(self.slice_num-1, 0) /4)  ) + 1, 2)
+        T, St   = np.meshgrid(self.times, np.exp(self.logStrikes))
+        Index, Lst= np.meshgrid(range(self.slice_num), self.logStrikes)
+        fv = np.vectorize(self.fitted_vol)
+        
+        # Total Variance
+        fig = plt.figure()
+        fig.set_size_inches(8.0, 6.0)
+        for i in range(self.slice_num-1, -1, -1):
+            plt.plot(testing, self.vectorized_fitter[i](testing), '-',
+                     linewidth = 0.8, label=f"T="+"{:2.2f}".format(self.times[i]))
+
+        plt.legend(shadow = True, fancybox=True, loc = "upper center")
+        plt.title("Total Variance")
+        plt.grid(linestyle="--", linewidth = 0.1, color='black')
+        fig.tight_layout()
+        
+        # surface 3D
+        fig = plt.figure()
+        fig.set_size_inches(7.0, 5.0)
+        ax  = plt.axes(projection='3d')
+        ax.plot_surface(St, T, fv(Index, Lst), rstride=1, cstride=1,
+                       cmap='viridis', edgecolor='none')
+        ax.set_xlabel('K')
+        ax.set_ylabel('T')
+        ax.set_zlabel('Vol')
+        fig.tight_layout()
+        
+        """
+        fig, axs = plt.subplots(ax_size, 4)
+        fig.tight_layout()
+        fig.subplots_adjust(wspace=0.2)
+        fig.set_size_inches(18.0, 9.0)
+        
+        count= 0
+        row  = 0
+        col  = 0
+        while count < self.slice_num:
+            col = count%4
+            row = int(np.floor((count / 4)))
+            axs[row, col].plot(testing, self.vectorized_g[count](testing), 'r--', linewidth = 2, label='g(k)')
+            axs[row, col].plot(testing, np.zeros(len(testing)), 'b-', linewidth=1)
+            title = f"T="+"{:2.2f}".format(self.times[count])
+            title +=f" (Butterfly: {self.butterfly_ox[count]}, Calendar: {self.calendar_ox[count]})"
+            axs[row, col].set_title(title)
+            axs[row, col].legend(shadow = True, fancybox=True, loc = "upper right")
+            count += 1
+        """
+
+        fig, axs = plt.subplots(ax_size, 4)
+        fig.subplots_adjust(wspace=0.2)
+        fig.set_size_inches(16.0, 9.0, forward=True)
+        count= 0
+        row  = 0
+        col  = 0
+        while count < self.slice_num:
+            col = count%4
+            row = int(np.floor((count / 4)))
+            axs[row, col].plot(st, self.fitted_slice(count), 'r--', linewidth = 2, label='(s)svi')
+            axs[row, col].plot(st, self.volData[count], 'b^', markersize=4, label='data')
+            title = f"T="+"{:2.2f}".format(self.times[count])
+            title +=f" (Butterfly: {self.butterfly_ox[count]}, Calendar: {self.calendar_ox[count]})"
+            axs[row, col].set_title(title)
+            axs[row, col].legend(shadow = True, fancybox=True, loc = "upper right")
+            axs[row, col].grid(linestyle="--", linewidth = 0.2, color='black')
+            count += 1
+        fig.tight_layout()
+
+        plt.show()
+
+    def check_calendar(self):
+        if self.slice_num == 1:
+            return 
+        
+        testing = [-2.0 + 0.001*i for i in range(4001)]
+        for i in range(self.slice_num-1):
+            if any(self.vectorized_fitter[i](testing) > self.vectorized_fitter[i+1](testing)):
+                self.calendar_ox[i] = 'X'
+
+    def check_butterfly(self):
+        testing = [-2.0 + 0.005*i for i in range(4001)]
+        for i in range(self.slice_num):
+            if any(self.vectorized_g[i](testing) < 0.0):
+                self.butterfly_ox[i] = 'X'
+
+    def check_arbitrage(self):
+        print("surface butterfly: ", self.check_butterfly())
+        print("surface calendars: " , self.check_calendar())

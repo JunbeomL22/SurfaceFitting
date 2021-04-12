@@ -33,7 +33,7 @@ class Ssvi(FittingFunction):
 
     
 eps = constant.bumpBuffer
-ssviQuotientConstraints = (
+ssviQuotientConstraints = [
     # rho
     {'type': 'ineq',
      'fun': lambda x: np.array([1.0 - eps - np.abs(x[0])]),
@@ -64,7 +64,7 @@ ssviQuotientConstraints = (
      'fun': lambda x: np.array([2.0 - (x[2] + eps) * (1.0 + np.abs(x[0]) + eps) ]),
      'jac': lambda x: np.array([-(x[2] + eps), 0., -(1.0 + np.abs(x[0]) + eps), 0.])
      } 
-)
+]
         
 
     

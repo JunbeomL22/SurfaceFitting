@@ -1,8 +1,12 @@
 import QuantLib as ql
 import re
-from datetime import date
+from datetime import date, datetime
 import numpy as np
 import xlwings as xw
+
+def str_to_date(x):
+    d = datetime.strptime(x, "%m/%d/%Y")
+    return d.date()
 
 def to_date(x):
     """
