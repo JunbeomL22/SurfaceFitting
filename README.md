@@ -28,7 +28,7 @@ The raw python function is as follow:
 ```
 def fit_with_forward_moneyness(dt, dates, money, vol,
                                weight=True,
-                               weight_cut = 0.5, calendar_buffer = 0.001,
+                               weight_cut = 0.4, calendar_buffer = 0.0002,
                                vol_scale =1.0, 
                                max_iter = 10000):
 ```
