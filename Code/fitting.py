@@ -133,7 +133,7 @@ class SurfaceFit:
         else:
             self.weights = np.tile(1.0, self.logStrikesToFit.shape)
         self.params = [None for i in range(self.slice_num)]
-        self.calendar_checker = np.linspace(-1.5, 1.5, 15)
+        self.calendar_checker = np.linspace(-3.0, 3.0, 7)
         self.calendar_ox =  ['O' for i in range(self.slice_num)]
         self.calendar_ox[-1] = 'Nil'
         self.butterfly_ox = ['O' for i in range(self.slice_num)]
