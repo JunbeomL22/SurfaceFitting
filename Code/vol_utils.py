@@ -4,7 +4,7 @@ from datetime import date, datetime
 import numpy as np
 import xlwings as xw
 
-def str_to_date(x):
+def str2date(x):
     d = datetime.strptime(x, "%m/%d/%Y")
     return d.date()
 

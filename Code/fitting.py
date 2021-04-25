@@ -112,7 +112,7 @@ class SurfaceFit:
     """
     def __init__(self,
                  calc_date, dates, 
-                 strikes, volData,
+                 mult_strikes, volData,
                  fitter,
                  weight = True,
                  weight_cut = 0.6,
@@ -120,23 +120,24 @@ class SurfaceFit:
         diff = np.array(dates) - calc_date
         self.times = np.array([x.days/365.0 for x in diff])
         self.slice_num = len(self.times)
-        self.volData = np.array(volData) * 0.01
+        self.volData = np.array(volData)
         self.totalVar = np.power(self.volData, 2.0) * self.times.reshape(-1, 1)
-        self.logStrikes = np.log(strikes)
+        self.logStrikesToFit = np.log(mult_strikes)
         self.fitter = fitter
         self.vectorized_fitter = [np.vectorize(fitter[i]) for i in range(self.slice_num)]
         self.vectorized_g = [np.vectorize(fitter[i]) for i in range(self.slice_num)]
         self.butterfly = ssvi.ssviQuotientConstraints
         self.calendar_buffer = calendar_buffer
         if weight:
-            self.weight = 5.0 * np.maximum(0.0, np.abs(np.log(weight_cut)) - np.abs(self.logStrikes))
+            self.weights = 5.0 * np.maximum(0.0, np.abs(np.log(weight_cut)) - np.abs(self.logStrikesToFit))
         else:
-            self.weight = np.repeat(1.0, len(self.logStrikes))
+            self.weights = np.tile(1.0, self.logStrikesToFit.shape)
         self.params = [None for i in range(self.slice_num)]
         self.calendar_checker = np.linspace(-1.5, 1.5, 15)
         self.calendar_ox =  ['O' for i in range(self.slice_num)]
         self.calendar_ox[-1] = 'Nil'
         self.butterfly_ox = ['O' for i in range(self.slice_num)]
+        self.logStrikeToPlot = np.linspace(np.log(0.5), np.log(1.5), 21)
         
     def cost_function(self, i, x):
         """
@@ -147,7 +148,7 @@ class SurfaceFit:
         """
         self.fitter[i].reset(x)
         vf = np.vectorize(self.fitter[i])
-        _value = np.sum( (self.weight*(self.totalVar[i] - vf(self.logStrikes)))**2.0 ) 
+        _value = np.sum( (self.weights[i]*(self.totalVar[i] - vf(self.logStrikesToFit[i])))**2.0 ) 
         return _value
 
     def calibrate_slice(self, i, init = np.array([-0.3, 0.01, 0.4, 0.4]),
@@ -189,7 +190,7 @@ class SurfaceFit:
         self.vectorized_g[i] = np.vectorize(partial(self.g, i))
         
     def calibrate(self, init = np.array([-0.3, 0.01, 0.4, 0.4]),
-                  method='SLSQP', maxiter = 10000, tol = 1.0e-16,
+                  method='SLSQP', maxiter = 20000, tol = 1.0e-16,
                   verbose = False):
 
         for i in range(self.slice_num-1, -1, -1):
@@ -206,13 +207,13 @@ class SurfaceFit:
         """
         return np.sqrt(self.vectorized_fitter[i](k) /self.times[i]  )
 
-    def fitted_slice(self, i):
+    def fitted_slice(self, i, log_st):
         """
         fitted_vol(self, k)
         volatility point at k
         Note: k is log strike
         """
-        return np.sqrt( self.vectorized_fitter[i](self.logStrikes) / self.times[i] )
+        return np.sqrt( self.vectorized_fitter[i](log_st) / self.times[i] )
     
     def g(self, i, k):
         """
@@ -228,12 +229,12 @@ class SurfaceFit:
         return g
 
     def visualize(self):
-        st = np.exp(self.logStrikes)
-        lst = self.logStrikes
+        st = np.exp(self.logStrikeToPlot)
+        lst = self.logStrikeToPlot
         testing = [-1.0 + 0.01*i for i in range(201)]
         ax_size = max(int(np.floor( max(self.slice_num-1, 0) /4)  ) + 1, 2)
-        T, St   = np.meshgrid(self.times, np.exp(self.logStrikes))
-        Index, Lst= np.meshgrid(range(self.slice_num), self.logStrikes)
+        T, St   = np.meshgrid(self.times, st)
+        Index, Lst= np.meshgrid(range(self.slice_num), lst)
         fv = np.vectorize(self.fitted_vol)
         
         # Total Variance
@@ -289,8 +290,8 @@ class SurfaceFit:
         while count < self.slice_num:
             col = count%4
             row = int(np.floor((count / 4)))
-            axs[row, col].plot(st, self.fitted_slice(count), 'r--', linewidth = 2, label='(s)svi')
-            axs[row, col].plot(st, self.volData[count], 'b^', markersize=4, label='data')
+            axs[row, col].plot(st, self.fitted_slice(count, np.log(st)), 'r--', linewidth = 2, label='(s)svi')
+            axs[row, col].plot(np.exp(self.logStrikesToFit[count]), self.volData[count], 'b^', markersize=4, label='data')
             title = f"T="+"{:2.2f}".format(self.times[count])
             title +=f" (Butterfly: {self.butterfly_ox[count]}, Calendar: {self.calendar_ox[count]})"
             axs[row, col].set_title(title)
