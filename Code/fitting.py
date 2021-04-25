@@ -168,13 +168,31 @@ class SurfaceFit:
             _cost_function = partial(self.cost_function, i)
             cons = copy.deepcopy(self.butterfly)
             for z in self.calendar_checker:
-                def calendar(k, x):
+                def calendar1(k, x):
+                    _x = copy.deepcopy(x)
+                    _x[0] -= self.calendar_buffer
+                    _x[1] += self.calendar_buffer
+                    _x[2] += self.calendar_buffer
+                    _x[3] += self.calendar_buffer
                     _fitter = copy.deepcopy(self.fitter[i])
-                    _fitter.reset(x)
+                    _fitter.reset(_x)
                     ret = self.fitter[i+1](k) - self.calendar_buffer - _fitter(k)
                     return ret
                 
-                cons.append({'type': 'ineq', 'fun': partial(calendar, z)})
+                cons.append({'type': 'ineq', 'fun': partial(calendar1, z)})
+
+                def calendar2(k, x):
+                    _x = copy.deepcopy(x)
+                    _x[0] += self.calendar_buffer
+                    _x[1] += self.calendar_buffer
+                    _x[2] += self.calendar_buffer
+                    _x[3] += self.calendar_buffer
+                    _fitter = copy.deepcopy(self.fitter[i])
+                    _fitter.reset(_x)
+                    ret = self.fitter[i+1](k) - self.calendar_buffer - _fitter(k)
+                    return ret
+                
+                cons.append({'type': 'ineq', 'fun': partial(calendar2, z)})
             
             res = minimize(
                 _cost_function, _init,
@@ -308,7 +326,15 @@ class SurfaceFit:
         
         testing = [-2.0 + 0.001*i for i in range(4001)]
         for i in range(self.slice_num-1):
-            if any(self.vectorized_fitter[i](testing) > self.vectorized_fitter[i+1](testing)):
+            _fit = copy.deepcopy(self.fitter[i])
+            _x = copy.deepcopy(self.params[i])
+            _x[0] -= self.calendar_buffer
+            _x[1] += self.calendar_buffer
+            _x[2] += self.calendar_buffer
+            _x[3] += self.calendar_buffer
+            _fit.reset(_x)
+            test_fitter = np.vectorize(_fit)
+            if any(test_fitter(testing) > self.vectorized_fitter[i+1](testing)):
                 self.calendar_ox[i] = 'X'
 
     def check_butterfly(self):
