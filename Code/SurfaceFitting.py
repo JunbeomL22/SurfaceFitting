@@ -25,7 +25,7 @@ def fit_with_forward_moneyness(dt, dates, money, vol,
     vol = np.array(vol) * vol_scale
     mult_money = [money for i in range(len(dates))]
     #import pdb;pdb.set_trace()
-    fitter = [ssvi.Ssvi([-0.2, 0.02], phi.QuotientPhi([0.4, 0.4])) for i in range(len(dates))]
+    fitter = [ssvi.Ssvi([-0.3, 0.01], phi.QuotientPhi([0.4, 0.4])) for i in range(len(dates))]
     surface = fitting.SurfaceFit(dt, dates, mult_money, vol, fitter,
                                  weight = weight,
                                  weight_cut = weight_cut,

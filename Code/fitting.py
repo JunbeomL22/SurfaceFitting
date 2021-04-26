@@ -133,7 +133,7 @@ class SurfaceFit:
         else:
             self.weights = np.tile(1.0, self.logStrikesToFit.shape)
         self.params = [None for i in range(self.slice_num)]
-        self.calendar_checker = np.linspace(-3.0, 3.0, 7)
+        self.calendar_checker = np.linspace(-1.5, 1.5, 7)
         self.calendar_ox =  ['O' for i in range(self.slice_num)]
         self.calendar_ox[-1] = 'Nil'
         self.butterfly_ox = ['O' for i in range(self.slice_num)]
@@ -207,7 +207,7 @@ class SurfaceFit:
         self.vectorized_fitter[i] = np.vectorize(self.fitter[i])
         self.vectorized_g[i] = np.vectorize(partial(self.g, i))
         
-    def calibrate(self, init = np.array([-0.3, 0.01, 0.4, 0.4]),
+    def calibrate(self, init = np.array([-0.2, 0.02, 0.4, 0.4]),
                   method='SLSQP', maxiter = 20000, tol = 1.0e-16,
                   verbose = False):
 
@@ -324,7 +324,7 @@ class SurfaceFit:
         if self.slice_num == 1:
             return 
         
-        testing = [-2.0 + 0.001*i for i in range(4001)]
+        testing = [-1.5 + 0.001*i for i in range(3001)]
         for i in range(self.slice_num-1):
             _fit = copy.deepcopy(self.fitter[i])
             _x = copy.deepcopy(self.params[i])
@@ -336,9 +336,9 @@ class SurfaceFit:
             test_fitter = np.vectorize(_fit)
             if any(test_fitter(testing) > self.vectorized_fitter[i+1](testing)):
                 self.calendar_ox[i] = 'X'
-
+                
     def check_butterfly(self):
-        testing = [-2.0 + 0.005*i for i in range(4001)]
+        testing = [-1.5 + 0.005*i for i in range(3001)]
         for i in range(self.slice_num):
             if any(self.vectorized_g[i](testing) < 0.0):
                 self.butterfly_ox[i] = 'X'
