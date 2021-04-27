@@ -31,7 +31,7 @@ def fit_with_forward_moneyness(dt, dates, money, vol,
                                  weight_cut = weight_cut,
                                  calendar_buffer = calendar_buffer)
 
-    surface.calibrate(maxiter = max_iter, verbose = True)
+    surface.calibrate(maxiter = max_iter, verbose = True, method = 'SLSQP')
     surface.visualize()
     
     msg = "데이터베이스에 입력 하시겠습니까?\n\n" 

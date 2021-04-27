@@ -133,7 +133,9 @@ class SurfaceFit:
         else:
             self.weights = np.tile(1.0, self.logStrikesToFit.shape)
         self.params = [None for i in range(self.slice_num)]
-        self.calendar_checker = np.linspace(-1.5, 1.5, 7)
+        
+        self.calendar_checker = np.array([-1.5, -0.1, -0.05, 0.0, 0.03, 0.065, 0.01, 1.5])
+        #self.calendar_checker = np.linspace(-1.1, 1.1, 11)
         self.calendar_ox =  ['O' for i in range(self.slice_num)]
         self.calendar_ox[-1] = 'Nil'
         self.butterfly_ox = ['O' for i in range(self.slice_num)]
@@ -154,6 +156,8 @@ class SurfaceFit:
     def calibrate_slice(self, i, init = np.array([-0.3, 0.01, 0.4, 0.4]),
                         method='SLSQP', maxiter = 10000, tol = 1.0e-16,
                         verbose = False):
+        print(f"----- {str(i+1)}th slice" + " (T={:2.2f}".format(self.times[i]) + "): ")
+
         _init = init
         _cost_function = partial(self.cost_function, i)
         if i == self.slice_num - 1:
@@ -169,31 +173,42 @@ class SurfaceFit:
             cons = copy.deepcopy(self.butterfly)
             for z in self.calendar_checker:
                 def calendar1(k, x):
-                    _x = copy.deepcopy(x)
-                    _x[0] -= self.calendar_buffer
-                    _x[1] += self.calendar_buffer
-                    _x[2] += self.calendar_buffer
-                    _x[3] += self.calendar_buffer
-                    _fitter = copy.deepcopy(self.fitter[i])
-                    _fitter.reset(_x)
-                    ret = self.fitter[i+1](k) - self.calendar_buffer - _fitter(k)
+                    x[0] -= self.calendar_buffer
+                    x[1] += self.calendar_buffer
+                    x[2] += self.calendar_buffer
+                    x[3] += self.calendar_buffer
+                    self.fitter[i].reset(x)
+
+                    ret = self.fitter[i+1](k) - self.calendar_buffer - self.fitter[i](k)
+                    
+                    x[0] += self.calendar_buffer
+                    x[1] -= self.calendar_buffer
+                    x[2] -= self.calendar_buffer
+                    x[3] -= self.calendar_buffer
+                    self.fitter[i].reset(x)
                     return ret
                 
                 cons.append({'type': 'ineq', 'fun': partial(calendar1, z)})
 
                 def calendar2(k, x):
-                    _x = copy.deepcopy(x)
-                    _x[0] += self.calendar_buffer
-                    _x[1] += self.calendar_buffer
-                    _x[2] += self.calendar_buffer
-                    _x[3] += self.calendar_buffer
-                    _fitter = copy.deepcopy(self.fitter[i])
-                    _fitter.reset(_x)
-                    ret = self.fitter[i+1](k) - self.calendar_buffer - _fitter(k)
+                    x[0] += self.calendar_buffer
+                    x[1] += self.calendar_buffer
+                    x[2] += self.calendar_buffer
+                    x[3] += self.calendar_buffer
+                    self.fitter[i].reset(x)
+
+                    ret = self.fitter[i+1](k) - self.calendar_buffer - self.fitter[i](k)
+
+                    x[0] -= self.calendar_buffer
+                    x[1] -= self.calendar_buffer
+                    x[2] -= self.calendar_buffer
+                    x[3] -= self.calendar_buffer
+                    self.fitter[i].reset(x)
+                    
                     return ret
                 
                 cons.append({'type': 'ineq', 'fun': partial(calendar2, z)})
-            
+                
             res = minimize(
                 _cost_function, _init,
                 constraints = cons,
@@ -201,7 +216,8 @@ class SurfaceFit:
                 options = {'disp': verbose, 'maxiter': maxiter},
                 tol = tol
             )
-            
+        print("\n")
+
         self.fitter[i].reset(res.x)
         self.params[i] = res.x
         self.vectorized_fitter[i] = np.vectorize(self.fitter[i])
@@ -277,27 +293,7 @@ class SurfaceFit:
         ax.set_ylabel('T')
         ax.set_zlabel('Vol')
         fig.tight_layout()
-        
-        """
-        fig, axs = plt.subplots(ax_size, 4)
-        fig.tight_layout()
-        fig.subplots_adjust(wspace=0.2)
-        fig.set_size_inches(18.0, 9.0)
-        
-        count= 0
-        row  = 0
-        col  = 0
-        while count < self.slice_num:
-            col = count%4
-            row = int(np.floor((count / 4)))
-            axs[row, col].plot(testing, self.vectorized_g[count](testing), 'r--', linewidth = 2, label='g(k)')
-            axs[row, col].plot(testing, np.zeros(len(testing)), 'b-', linewidth=1)
-            title = f"T="+"{:2.2f}".format(self.times[count])
-            title +=f" (Butterfly: {self.butterfly_ox[count]}, Calendar: {self.calendar_ox[count]})"
-            axs[row, col].set_title(title)
-            axs[row, col].legend(shadow = True, fancybox=True, loc = "upper right")
-            count += 1
-        """
+
 
         fig, axs = plt.subplots(ax_size, 4)
         fig.subplots_adjust(wspace=0.2)
@@ -324,7 +320,7 @@ class SurfaceFit:
         if self.slice_num == 1:
             return 
         
-        testing = [-1.5 + 0.001*i for i in range(3001)]
+        testing = [-1.1 + 0.001*i for i in range(2201)]
         for i in range(self.slice_num-1):
             _fit = copy.deepcopy(self.fitter[i])
             _x = copy.deepcopy(self.params[i])
@@ -338,7 +334,7 @@ class SurfaceFit:
                 self.calendar_ox[i] = 'X'
                 
     def check_butterfly(self):
-        testing = [-1.5 + 0.005*i for i in range(3001)]
+        testing = [-1.1 + 0.001*i for i in range(2201)]
         for i in range(self.slice_num):
             if any(self.vectorized_g[i](testing) < 0.0):
                 self.butterfly_ox[i] = 'X'
