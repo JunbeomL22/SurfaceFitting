@@ -265,7 +265,7 @@ class SurfaceFit:
     def visualize(self):
         st = np.exp(self.logStrikeToPlot)
         lst = self.logStrikeToPlot
-        testing = [-1.0 + 0.01*i for i in range(201)]
+        testing = [-1.5 + 0.01*i for i in range(301)]
         ax_size = max(int(np.floor( max(self.slice_num-1, 0) /4)  ) + 1, 2)
         T, St   = np.meshgrid(self.times, st)
         Index, Lst= np.meshgrid(range(self.slice_num), lst)
@@ -320,7 +320,7 @@ class SurfaceFit:
         if self.slice_num == 1:
             return 
         
-        testing = [-1.1 + 0.001*i for i in range(2201)]
+        testing = [-1.5 + 0.001*i for i in range(3001)]
         for i in range(self.slice_num-1):
             _fit = copy.deepcopy(self.fitter[i])
             _x = copy.deepcopy(self.params[i])
@@ -334,7 +334,7 @@ class SurfaceFit:
                 self.calendar_ox[i] = 'X'
                 
     def check_butterfly(self):
-        testing = [-1.1 + 0.001*i for i in range(2201)]
+        testing = [-1.5 + 0.001*i for i in range(3001)]
         for i in range(self.slice_num):
             if any(self.vectorized_g[i](testing) < 0.0):
                 self.butterfly_ox[i] = 'X'
