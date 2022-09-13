@@ -259,7 +259,7 @@ class SurfaceFit:
         eps = 1.0e-4
         w_first = ( w(k+eps) - w(k-eps) ) / (2.0*eps)
         w_second= ( w(k+eps) + w(k-eps) - 2.0*w(k) ) / (eps**2.0)
-        g = (1.0 - k*w_first /(2.0*wk))**2.0 - 0.25*w_first**2.0*(1.0/wk + 0.25) + 0.25*w_second
+        g = (1.0 - k*w_first /(2.0*wk))**2.0 - 0.25*w_first**2.0*(1.0/wk + 0.25) + 0.5*w_second
         return g
 
     def visualize(self):
