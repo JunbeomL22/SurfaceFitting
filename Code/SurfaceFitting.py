@@ -3,7 +3,7 @@ import utils
 import fitting
 import ssvi
 import phi
-from datetime import datetime, date
+from datetime import datetime
 import numpy as np
 import unicodedata as ud
 
@@ -31,25 +31,20 @@ def fit_with_forward_moneyness(dt, dates, money, vol,
                                  weight_cut = weight_cut,
                                  calendar_buffer = calendar_buffer)
 
-    surface.calibrate(maxiter = max_iter, verbose = True, method = 'SLSQP')
+    surface.calibrate(maxiter = max_iter, verbose = True, method = 'SLSQP', tol = 5.0e-8)
     surface.visualize()
     
-    msg = "데이터베이스에 입력 하시겠습니까?\n\n" 
-    msg += "(원하지 않으실 경우 No를 누르시고,\n"
-    msg += "weight_cut | calendar_buffer 값등을 조정해서 재 실행 해보시기 바랍니다. \n"
-    msg += "default 값은 weight_cut=0.4 (=40%), calendar_buffer=0.0003 입니다. \n" 
-    msg += "외 가격의 비중을 줄이려면 weight_cut값을 늘리고 (e.g., 0.7), \n" 
-    msg += "calendar arbitrage 발생시 \n"
-    msg += "calendar_buffer를 낮게 설정해 주시면 됩니다 (0.00015 미만은 권장되지 않음). \n" 
-    msg += "[예시: fit_with_forward_moneyness(dt, dates, money, vol, TRUE, 0.7, 0.0002)] \n"
-    msg += "[다섯번째 변수가, FLASE일 경우 가중치 부여 없음] \n" 
-    msg += "8, 9 번째의 변수 값은 볼 스케일 값과 \n"
-    msg += "(e.g., 데이터가 25.432등으로 들어올경우 0.01로 설정) \n" 
-    msg += "최적화 시 max iteration값 입니다 \n"
-    msg += "(e.g., 결과가 만족스럽지 않다면 20000으로 설정). \n\n" 
-    msg += "주의! 엑셀 계산 옵션이 자동이라면 데이터 값 변경시 자동으로 실행 됩니다.\n"
+    new_msg = "If the result is not satisfactory, you may want to adjust the following inputs:\n"
+    new_msg += " * weight_cut:\n"
+    new_msg += "    This cuts off the deep otm data.\n"
+    new_msg += "    For instance, if weight_cut = 0.7, the option data outside [0.7, 1.3] will be ignored.\n"
+    new_msg += " * calendar_buffer:\n"
+    new_msg += "    This is the buffer in applying the calendar arbitrage inequality constraint.\n"
+    new_msg += "    If the calendar arbitrage is detected, you may want to lower this value.\n"
+    new_msg += "    However, I recommend to set this value below 0.00015.\n"
     
-    m_res = utils.Mbox("", msg, 4)
+    m_res = utils.show_message_box(new_msg, "", width = 500)
+
     if m_res == 6:
         rho = ud.lookup("GREEK SMALL LETTER RHO")
         theta = ud.lookup("GREEK SMALL LETTER THETA")
@@ -65,8 +60,3 @@ def fit_with_forward_moneyness(dt, dates, money, vol,
     else:
         return
 
-    
-    
-
-#import xlwings as xw;xw.serve()
-    

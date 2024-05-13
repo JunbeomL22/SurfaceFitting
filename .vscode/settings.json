@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${env:PYTHONPATH};D:/Projects/SurfaceFitting/Code"
+    },
+    //"python.REPL.enableREPLSmartSend": true,
+}

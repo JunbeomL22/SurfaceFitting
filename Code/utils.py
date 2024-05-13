@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 import numbers
-import sqlalchemy
 import pandas as pd
-import numpy as np
-import xlwings as xw
-#import QuantLib as ql
+import QuantLib as ql
 import datetime as dt
-import ctypes
-import pdb
-from sqlalchemy import MetaData, Table
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.automap import automap_base
-from math import isnan
 import time
 from datetime import date, datetime
+import tkinter as tk
+from tkinter import messagebox
+
+def show_message_box(msg, title, width=300, height=100):
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    root.geometry(f"{width}x{height}")
+    messagebox.showinfo(title, msg)
 
 def str2date(x):
     d = datetime.strptime(x, "%Y-%m-%d")
@@ -44,55 +43,6 @@ def qldate2str(dt):
     by the format of 'yyyymmdd'
     """
     return date2str(qldate2date(dt))
-
-def db_engine(database, schema = "OTCUSER", password = "otcuser"):
-    '''
-    The input is the schema name, i.e., either one of otcora or otcora_114.
-    Then it retuns the engine object in sqlalchemy.
-    ex) 
-    >>> engine = db_engine("otcora")
-    >>> sql_query = pd.read_sql_query("select * from otc_ir_daily_val fetch first 10 rows only", conn)
-    >>> sql_query
-        IR_CODE BASE_DATE     DAY   YEAR     VALUE
-        0       5190110  20120813   365.0   1.00  0.028800
-        1       5190110  20120813   730.0   2.00  0.029200
-        2       5190110  20120813  1095.0   3.00  0.030500
-        3       5190110  20120813  1825.0   5.00  0.031600
-        4       5190110  20120813  3650.0  10.00  0.032700
-        5       5190110S  20120813    91.0   0.25  2.829965
-        6       5190110S  20120813   274.0   0.75  2.859872
-        7       5190110S  20120813   548.0   1.50  2.889973
-        8       5190110S  20120813   913.0   2.50  2.971423
-        9       5190110S  20120813  1460.0   4.00  3.094200
-    '''
-    DATABASE = database
-    SCHEMA   = schema
-    PASSWORD = password
-    connstr  = "oracle://{}:{}@{}".format(SCHEMA, PASSWORD, DATABASE)
-    engine = sqlalchemy.create_engine(connstr, max_identifier_length=128)
-    return engine
-
-def get_holidays(country_code, days = 365):
-    """
-    get_holidays(country_code, days = 365)
-    #
-    country_code = 'KR', 'US', 'HK', 'UK', 'EU', etc.
-    To get list of holidays since 'days' (input variable) ago (default is 365).
-    """
-    engine = db_engine('otcora')
-    conn = engine.connect()
-    ql_2year_ago = date2qldate(date.today()) - ql.Period(days, ql.Days)
-    st_dt = qldate2str(ql_2year_ago)
-    country_code = '\'' + country_code + '\''
-    condition  = " where market = " + country_code + " and  "
-    condition = condition + "is_weekend is null and non_trading=1 and base_date > " +st_dt
-
-    holidays = conn.execute("select * from otc_market_calendar" + condition)
-    ret = []
-    for d in holidays: ret.append(d[0])
-    engine.dispose()
-    
-    return ret
 
 def char_to_yearfrac(char):
     """
@@ -169,21 +119,6 @@ def datetime_yearfrac(st, ed):
     delta = d_ed - d_st
     return delta.days/365.25
 
-def Mbox(title, text, style):
-    '''
-    Mbox(title, text, style)
-    ##  Styles:
-    ##  0 : OK
-    ##  1 : OK | Cancel
-    ##  2 : Abort | Retry | Ignore
-    ##  3 : Yes | No | Cancel
-    ##  4 : Yes | No
-    ##  5 : Retry | No 
-    ##  6 : Cancel | Try Again | Continue
-
-    '''
-    return ctypes.windll.user32.MessageBoxW(0, text, title, style)
-
 def head_date_to_string(arr, col_index=0):
     """
     head_date_to_string(arr)
@@ -239,75 +174,7 @@ def check_bloomberg_error(data, time_to_sleep):
             return True
 
     return False
-    
-
-def raise_bloomberg_error(data, data_name= " "):
-    """
-    check_bloomberg_error(data, data_name)
-
-    This raises exception if one of the data is either
-    '#N/A Invalid Security' or '#N/A Invalid Security'
-
-    data is a 2-dim array, and data_name is a string
-    """
-    for d in data:
-        if BbgMessageInProgress in d:
-            Mbox("", BbgMessageInProgress +" appears while pulling " + data_name, 0)
-            raise Exception(BbgMessageInProgress +" appears while pulling " + data_name)
-        elif BbgMessageInvalid in d:
-            Mbox("", BbgMessageInvalid +" appears while pulling " + data_name, 0)
-            raise Exception(BbgMessageInvalid +" appears while pulling " + data_name)
-        elif BbgMsgNotApplicable in d:
-            Mbox("", BbgMsgNotApplicable +" appears while pulling " + data_name, 0)
-            raise Exception(BbgMsgNotApplicable +" appears while pulling " + data_name)
-        elif BbgMsgNA in d:
-            Mbox("", BbgMsgNotApplicable +" appears while pulling " + data_name, 0)
-            raise Exception(BbgMsgNotApplicable +" appears while pulling " + data_name)
-    pass
-
-def upsert(database, table_name, df, engine, session):
-    """
-    upsert(database, table_name, df, schema='OTCUSER', password='otcuser')
-    all inputs are string except df
-    df should be a pd.DataFrame object
-    """
-    assert isinstance(df, pd.DataFrame), "upsert error, df is not dataframe"
-
-    
-    # make the column lower case
-    df.columns = map(str.lower, df.columns)
-    
-    dict_val = df.to_dict(orient='records')
-
-    for i, d in enumerate(dict_val):
-        dict_val[i] = {k: d[k] for k in d if pd.notnull(d[k])}
-    
-    meta = sqlalchemy.MetaData()
-
-    meta.reflect(engine, autoload=True)
-
-    table = meta.tables[table_name]
-    
-    Base = declarative_base()
-    class Model(Base): __table__ = table
-
-    my_model =[]
-    for d in dict_val:
-        my_model.append(Model(**d))
-    #if table_name == 'ficc_cap_atm_vol':
-    #    pdb.set_trace()    
-    for m in my_model:
-        session.merge(m)
-
-    session.commit()
-    
-class JbException(Exception):
-    def __init__(self, message, number=0):
-        self.message = message
-
-    def __str__(self):
-        return self.message + "\n" + str(self.number) + " occured."
-    
+        
 def conversion(lst):
     res_dct = {item[0]: item[1] for item in lst}
     return res_dct

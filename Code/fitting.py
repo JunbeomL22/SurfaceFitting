@@ -60,7 +60,7 @@ class SliceFit:
         return _value
 
     def calibrate(self, init = np.array([-0.3, 0.01, 0.4, 0.4]),
-                  method='SLSQP', maxiter = 10000, tol = 1.0e-16,
+                  method='SLSQP', maxiter = 10000, tol = 1.0e-7,
                   verbose = False):
         _init = init
         #import pdb;pdb.set_trace()
@@ -154,7 +154,7 @@ class SurfaceFit:
         return _value
 
     def calibrate_slice(self, i, init = np.array([-0.3, 0.01, 0.4, 0.4]),
-                        method='SLSQP', maxiter = 10000, tol = 1.0e-16,
+                        method='SLSQP', maxiter = 10000, tol = 1.0e-7,
                         verbose = False):
         print(f"----- {str(i+1)}th slice" + " (T={:2.2f}".format(self.times[i]) + "): ")
 
@@ -224,7 +224,7 @@ class SurfaceFit:
         self.vectorized_g[i] = np.vectorize(partial(self.g, i))
         
     def calibrate(self, init = np.array([-0.2, 0.02, 0.4, 0.4]),
-                  method='SLSQP', maxiter = 20000, tol = 1.0e-16,
+                  method='SLSQP', maxiter = 20000, tol = 1.0e-7,
                   verbose = False):
 
         for i in range(self.slice_num-1, -1, -1):
