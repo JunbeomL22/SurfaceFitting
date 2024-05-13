@@ -15,7 +15,7 @@ If xlwings is installed. Hit the following command in windows prompt:
 ```
 xlwings addin install
 ```
-Then, in your VBA, add xlwings reference. In addition, in your xlwings addin, set the Python encironment as the absolute path and load the python function by clicking "Import Function".
+Then, in your VBA, add xlwings reference. In addition, in your xlwings addin, set the Python environment as the absolute path and load the python function by clicking "Import Function".
 
 ## Usage
 Now, you can use the fitting function in the excel work book:
@@ -59,5 +59,3 @@ Choose as your appetite. If you click "Yes", the udf will display the ssvi param
 
 ![Result](./Image/results.png "Result")
 
-## Note!
-If you want to insert the result in database, modify the python code following your environment.
