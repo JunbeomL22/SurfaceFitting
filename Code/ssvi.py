@@ -3,7 +3,7 @@ import constant
 
 class FittingFunction:
     def __init__(self):
-        assert false, "FittingFunction is not implemented"
+        assert False, "FittingFunction is not implemented"
 
     def __call__(self, k):
         return 0.0

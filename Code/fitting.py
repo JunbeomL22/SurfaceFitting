@@ -44,7 +44,7 @@ class SliceFit:
         if weight:
             self.weight = 5.0 * np.maximum(0.0, np.abs(np.log(weight_cut)) - np.abs(self.logStrikes))
         else:
-            self.weight = np.repeat(1.0, length(self.logStrikes))
+            self.weight = np.repeat(1.0, len(self.logStrikes))
         
     def cost_function(self, x):
         """
